@@ -1,0 +1,12 @@
+# Netlify build configuration.
+
+[build]
+command = "npm run build"
+
+[build.environment]
+# NEXT_PUBLIC_* vars are inlined into the client bundle BY DESIGN — the
+# Supabase anon key is a publishable key whose protection is RLS, not
+# secrecy. Exempt only these two from secrets scanning; the real secrets
+# (SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY) remain scanned and must
+# never appear in build output.
+SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
