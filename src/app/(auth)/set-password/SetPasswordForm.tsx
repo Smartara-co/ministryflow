@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { friendlyAuthError } from '@/lib/authErrors';
 import { createClient } from '@/lib/supabase/client';
 
 export function SetPasswordForm() {
@@ -31,16 +32,19 @@ export function SetPasswordForm() {
     }
 
     setPending(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    setPending(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        setError(friendlyAuthError(updateError.message));
+        return;
+      }
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setPending(false);
     }
-
-    router.push('/');
-    router.refresh();
   }
 
   return (

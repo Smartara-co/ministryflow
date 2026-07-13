@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { friendlyAuthError } from '@/lib/authErrors';
 import { createClient } from '@/lib/supabase/client';
 
 export function SignUpForm() {
@@ -26,21 +27,25 @@ export function SignUpForm() {
     }
 
     setPending(true);
-    const { error: signUpError } = await supabase.auth.signUp({
-      email: String(form.get('email')),
-      password,
-      options: {
-        data: { full_name: String(form.get('full_name')).trim() },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    setPending(false);
-
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
+    try {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: String(form.get('email')),
+        password,
+        options: {
+          data: { full_name: String(form.get('full_name')).trim() },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (signUpError) {
+        setError(friendlyAuthError(signUpError.message));
+        return;
+      }
+      setSent(true);
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setPending(false);
     }
-    setSent(true);
   }
 
   if (sent) {

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { friendlyAuthError } from '@/lib/authErrors';
 import { createClient } from '@/lib/supabase/client';
 
 export function SignInForm() {
@@ -21,23 +22,22 @@ export function SignInForm() {
 
     const form = new FormData(event.currentTarget);
     setPending(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: String(form.get('email')),
-      password: String(form.get('password')),
-    });
-    setPending(false);
-
-    if (signInError) {
-      setError(
-        signInError.message === 'Invalid login credentials'
-          ? 'Incorrect email or password.'
-          : signInError.message,
-      );
-      return;
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: String(form.get('email')),
+        password: String(form.get('password')),
+      });
+      if (signInError) {
+        setError(friendlyAuthError(signInError.message));
+        return;
+      }
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      setError(friendlyAuthError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setPending(false);
     }
-
-    router.push('/');
-    router.refresh();
   }
 
   return (
