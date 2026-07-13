@@ -16,5 +16,10 @@ export function friendlyAuthError(message: string): string {
   if (normalized.includes('email rate limit')) {
     return 'Too many emails sent right now — please try again in about an hour.';
   }
+  // Gateway timeouts and other 5xx responses can arrive with an empty or
+  // unparseable body, which supabase-js surfaces as "{}" or similar junk.
+  if (message.trim().length < 3 || normalized.includes('upstream request timeout')) {
+    return 'The server took too long to respond. Please try again in a moment — if this keeps happening, contact the administrator.';
+  }
   return message;
 }
