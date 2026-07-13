@@ -6,7 +6,10 @@ import type { ApplicationStatus } from './types';
  *  No SDK — one fetch call. Failing to send never fails the workflow: the
  *  status change is the source of truth, email is best-effort. */
 
-const FROM = 'MinistryFlow <onboarding@resend.dev>';
+// smartara.co is verified in the project's Resend account, which lifts the
+// test-mode "own inbox only" delivery restriction. Swap to a ministry-owned
+// domain (e.g. mail.moh.gov.gm) if/when MoH IT verifies one.
+const FROM = 'MinistryFlow <noreply@smartara.co>';
 
 const STATUS_MESSAGES: Partial<
   Record<ApplicationStatus, { subject: string; body: (c?: string | null) => string }>
