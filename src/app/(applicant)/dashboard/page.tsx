@@ -47,12 +47,14 @@ export default async function ApplicantDashboard() {
             Start your onboarding application
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-            Fill in your details as they appear on your appointment letter,
-            upload the required documents, and submit for review by the
-            Accounts Office.
+            Start by uploading your documents (appointment letter, ID,
+            bank details, etc.) — we&apos;ll use your grade to show exactly
+            which ones you need. You&apos;ll fill in the rest of your
+            details afterwards, then submit for review by the Accounts
+            Office.
           </p>
           <Link
-            href="/application"
+            href="/application/documents"
             className="mt-6 inline-block rounded-full bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800"
           >
             Start application

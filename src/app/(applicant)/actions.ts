@@ -46,6 +46,68 @@ function formToRaw(formData: FormData): Record<string, unknown> {
   return raw;
 }
 
+/** Documents-first flow: before any document can be uploaded (documents.
+ *  application_id is NOT NULL), the applicant needs a draft application row
+ *  to exist. Grade is the one field required at this point — it determines
+ *  which documents apply (support staff vs not) — everything else is filled
+ *  in afterwards on the full application form.
+ *
+ *  MVP is single-ministry (CLAUDE.md §7), so the ministry is auto-selected;
+ *  this will need a real picker once Phase 2 adds more ministries. */
+export async function startApplicationWithGrade(grade: string): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return { ok: false, message: 'Not signed in.' };
+  const { session, supabase } = ctx;
+
+  const trimmedGrade = grade.trim();
+  if (!trimmedGrade) {
+    return { ok: false, message: 'Enter your grade to continue.' };
+  }
+
+  const { data: existing } = await supabase
+    .from('applications')
+    .select('id,status')
+    .eq('applicant_id', session.userId)
+    .maybeSingle();
+
+  if (existing) {
+    if (!APPLICANT_EDITABLE_STATUSES.includes(existing.status)) {
+      // Already submitted with a grade set elsewhere; nothing to do here.
+      return { ok: true };
+    }
+    const { error } = await supabase
+      .from('applications')
+      .update({ grade: trimmedGrade })
+      .eq('id', existing.id);
+    if (error) return { ok: false, message: error.message };
+    revalidatePath('/application/documents');
+    revalidatePath('/dashboard');
+    return { ok: true };
+  }
+
+  const { data: ministry } = await supabase
+    .from('ministries')
+    .select('id')
+    .limit(1)
+    .maybeSingle();
+  if (!ministry) {
+    return { ok: false, message: 'No ministry is configured yet — contact the administrator.' };
+  }
+
+  const { error } = await supabase.from('applications').insert({
+    applicant_id: session.userId,
+    ministry_id: ministry.id,
+    status: 'draft',
+    grade: trimmedGrade,
+    email: session.email,
+  });
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath('/application/documents');
+  revalidatePath('/dashboard');
+  return { ok: true };
+}
+
 /** Create or update the applicant's single application while it is editable. */
 export async function saveApplication(formData: FormData): Promise<ActionResult> {
   const ctx = await getContext();

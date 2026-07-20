@@ -14,8 +14,8 @@ export default async function ApplicantLayout({
       userName={session.profile.full_name ?? session.email}
       navLinks={[
         { href: '/dashboard', label: 'Dashboard' },
-        { href: '/application', label: 'My application' },
         { href: '/application/documents', label: 'Documents' },
+        { href: '/application', label: 'My application' },
       ]}
     >
       {children}
