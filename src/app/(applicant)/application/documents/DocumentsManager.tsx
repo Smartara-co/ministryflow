@@ -7,8 +7,14 @@ import {
   MAX_FILE_SIZE_BYTES,
   type DocType,
 } from '@/lib/documents';
+import {
+  hasParserForDocType,
+  parseFieldsForDocType,
+  type ExtractedField,
+} from '@/lib/ocr/parseDocumentFields';
 import type { DocumentRow } from '@/lib/types';
 import { deleteDocument, uploadDocument, type ActionResult } from '../../actions';
+import { DocumentInsights } from './DocumentInsights';
 
 function fileNameFromPath(path: string): string {
   const base = path.split('/').pop() ?? path;
@@ -29,12 +35,15 @@ function UploadRow({
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [insights, setInsights] = useState<ExtractedField[] | null>(null);
 
   const complete = documents.length >= 1;
   const canAddMore = editable && documents.length < config.maxFiles;
 
   function handleUpload(file: File) {
     setResult(null);
+    setInsights(null);
     if (file.size > MAX_FILE_SIZE_BYTES) {
       setResult({ ok: false, message: 'File is larger than the 5MB limit.' });
       return;
@@ -50,6 +59,20 @@ function UploadRow({
       setResult(await uploadDocument(data));
       if (inputRef.current) inputRef.current.value = '';
     });
+
+    // Best-effort, purely additive: never blocks or affects the upload
+    // above. Only runs for document types with a defined parser.
+    if (hasParserForDocType(docType)) {
+      setScanning(true);
+      import('@/lib/ocr/extractText')
+        .then(({ extractTextFromFile }) => extractTextFromFile(file))
+        .then((text) => {
+          const fields = parseFieldsForDocType(docType, text);
+          setInsights(fields.length > 0 ? fields : null);
+        })
+        .catch(() => setInsights(null))
+        .finally(() => setScanning(false));
+    }
   }
 
   function handleDelete(id: string) {
@@ -129,6 +152,11 @@ function UploadRow({
           {result.message}
         </p>
       )}
+
+      {scanning && (
+        <p className="mt-3 text-xs text-slate-500">Scanning document for details…</p>
+      )}
+      {insights && insights.length > 0 && <DocumentInsights fields={insights} />}
     </div>
   );
 }

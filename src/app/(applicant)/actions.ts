@@ -108,6 +108,58 @@ export async function startApplicationWithGrade(grade: string): Promise<ActionRe
   return { ok: true };
 }
 
+/** Fields the client-side OCR pipeline (src/lib/ocr) is allowed to write.
+ *  Deliberately excludes date_joined (drives the payroll cutoff — never
+ *  auto-fillable) and everything not identity/reference data. The client
+ *  only ever sends fields the applicant explicitly ticked to apply. */
+const EXTRACTABLE_FIELDS = new Set([
+  'national_id_no',
+  'date_of_birth',
+  'gender',
+  'tin',
+  'grade',
+  'grade_point',
+  'appointment_grade',
+  'posting_region',
+]);
+
+/** Applies applicant-approved OCR suggestions to the draft application.
+ *  Never called automatically — only after the applicant ticks specific
+ *  suggested values and clicks "Apply" (see DocumentInsights.tsx). */
+export async function applyExtractedFields(
+  fields: Record<string, string>,
+): Promise<ActionResult> {
+  const ctx = await getContext();
+  if (!ctx) return { ok: false, message: 'Not signed in.' };
+  const { session, supabase } = ctx;
+
+  const updates: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (EXTRACTABLE_FIELDS.has(key) && value) updates[key] = value;
+  }
+  if (Object.keys(updates).length === 0) {
+    return { ok: false, message: 'Nothing to apply.' };
+  }
+
+  const { data: existing } = await supabase
+    .from('applications')
+    .select('id,status')
+    .eq('applicant_id', session.userId)
+    .maybeSingle();
+  if (!existing) return { ok: false, message: 'Start your application first.' };
+  if (!APPLICANT_EDITABLE_STATUSES.includes(existing.status)) {
+    return { ok: false, message: 'This application can no longer be edited.' };
+  }
+
+  const { error } = await supabase.from('applications').update(updates).eq('id', existing.id);
+  if (error) return { ok: false, message: error.message };
+
+  revalidatePath('/application');
+  revalidatePath('/application/documents');
+  revalidatePath('/dashboard');
+  return { ok: true, message: 'Applied.' };
+}
+
 /** Create or update the applicant's single application while it is editable. */
 export async function saveApplication(formData: FormData): Promise<ActionResult> {
   const ctx = await getContext();
