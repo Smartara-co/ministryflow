@@ -74,18 +74,20 @@ export default async function ReviewApplicationPage({
   const supportStaff = Boolean(app.grade && isSupportStaffGrade(app.grade));
 
   // Payroll cutoff (CLAUDE.md §5) based on the assumption-of-duty date.
-  const earningsTotal = payElements
+  // Basic salary is never one of payElements (see actions.ts) — it must be
+  // added explicitly; payElements holds only approved allowances.
+  const allowancesTotal = payElements
     .filter((e) => e.element_type === 'earning')
     .reduce((sum, e) => sum + (e.period_amount ?? 0), 0);
-  const monthlyPay = earningsTotal > 0 ? earningsTotal : (app.basic_salary ?? 0);
+  const monthlyPay = (app.basic_salary ?? 0) + allowancesTotal;
   const payroll = app.date_joined
     ? {
         action: calculatePayrollAction(app.date_joined),
         amount: calculatePayableAmount(app.date_joined, monthlyPay),
         basisNote:
-          earningsTotal > 0
+          allowancesTotal > 0
             ? 'basic salary + approved allowances'
-            : 'basic salary only (allowances not yet approved)',
+            : 'basic salary only (no allowances approved yet)',
       }
     : null;
 

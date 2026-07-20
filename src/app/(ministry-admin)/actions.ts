@@ -12,11 +12,14 @@ export interface ActionResult {
   message?: string;
 }
 
-/** SAL 1 earning element codes confirmed from real form samples. Categories
+/** SAL 1 earning element codes confirmed from a real filled sample form.
+ *  Basic Salary is deliberately NOT here — on the real form it only ever
+ *  appears in its own field near the top; it is never an earning-element
+ *  line. (An earlier version of this file wrongly used code 104 for it —
+ *  the real sample shows 104 is "One Off UnTax All Arrears".) Categories
  *  without a confirmed code get a null code — the Accounts Office fills it
  *  on the printed form. */
 const SAL1_CODES: Record<string, string | null> = {
-  basic_salary: '104',
   special_skills: '116',
   risk: '110',
   hardship: '142',
@@ -138,9 +141,10 @@ export async function decideApplication(input: {
   return { ok: true, message: `Application ${input.decision.replace('_', ' ')}.` };
 }
 
-/** On approval: write the SAL 1 earning elements — basic salary plus the
- *  allowances the Accounts Office ticked after checking eligibility against
- *  the uploaded letters. */
+/** On approval: write the SAL 1 earning elements — the allowances the
+ *  Accounts Office ticked after checking eligibility against the uploaded
+ *  letters. Basic salary is NOT written here; it lives only in
+ *  `applications.basic_salary` and its own field on the printed form. */
 async function buildPayElements(
   application: Application,
   allowanceIds: string[],
@@ -157,17 +161,6 @@ async function buildPayElements(
     period_amount: number;
     total_amount: number;
   }> = [];
-
-  if (application.basic_salary) {
-    elements.push({
-      application_id: application.id,
-      element_type: 'earning',
-      code: SAL1_CODES.basic_salary,
-      description: 'Basic Salary',
-      period_amount: application.basic_salary,
-      total_amount: application.basic_salary * 12,
-    });
-  }
 
   if (allowanceIds.length > 0) {
     const { data } = await supabase
