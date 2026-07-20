@@ -110,8 +110,14 @@ export async function startApplicationWithGrade(grade: string): Promise<ActionRe
 
 /** Fields the client-side OCR pipeline (src/lib/ocr) is allowed to write.
  *  Deliberately excludes date_joined (drives the payroll cutoff — never
- *  auto-fillable) and everything not identity/reference data. The client
- *  only ever sends fields the applicant explicitly ticked to apply. */
+ *  auto-fillable, no matter how reliable the other parsers get) and
+ *  everything not identity/reference data. job_title and basic_salary are
+ *  included even though they're higher-stakes than most, because — unlike
+ *  date_joined, which feeds an automated calculation with no further human
+ *  check — both still pass through two more review points before payroll
+ *  ever sees them: the applicant's own form review, then the ministry
+ *  admin's approval review. The client only ever sends fields the
+ *  applicant explicitly ticked to apply. */
 const EXTRACTABLE_FIELDS = new Set([
   'national_id_no',
   'date_of_birth',
@@ -121,6 +127,8 @@ const EXTRACTABLE_FIELDS = new Set([
   'grade_point',
   'appointment_grade',
   'posting_region',
+  'job_title',
+  'basic_salary',
 ]);
 
 /** Applies applicant-approved OCR suggestions to the draft application.
@@ -133,9 +141,12 @@ export async function applyExtractedFields(
   if (!ctx) return { ok: false, message: 'Not signed in.' };
   const { session, supabase } = ctx;
 
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(fields)) {
-    if (EXTRACTABLE_FIELDS.has(key) && value) updates[key] = value;
+    if (!EXTRACTABLE_FIELDS.has(key) || !value) continue;
+    // basic_salary is a numeric column — send an actual number, not the
+    // string PostgREST would otherwise need to coerce.
+    updates[key] = key === 'basic_salary' ? Number(value) : value;
   }
   if (Object.keys(updates).length === 0) {
     return { ok: false, message: 'Nothing to apply.' };
